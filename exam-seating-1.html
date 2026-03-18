@@ -1,0 +1,1049 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>GraphSeat — Exam Seating via Graph Colouring</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Serif+Display:ital@0;1&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --ink:    #0a0e1a;
+    --paper:  #f4f1ea;
+    --blue:   #1a3cff;
+    --cyan:   #00d4ff;
+    --green:  #00e87a;
+    --red:    #ff2b4e;
+    --gold:   #ffd43b;
+    --purple: #9b5de5;
+    --orange: #ff7c2a;
+
+    /* Branch colours */
+    --c1: #1a3cff;   /* CSE   */
+    --c2: #00d4ff;   /* ECE   */
+    --c3: #00e87a;   /* EEE   */
+    --c4: #ff2b4e;   /* MECH  */
+    --c5: #ffd43b;   /* CIVIL */
+    --c6: #9b5de5;   /* CHEM  */
+    --c7: #ff7c2a;   /* BIOTECH */
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--ink);
+    color: var(--paper);
+    font-family: 'IBM Plex Sans', sans-serif;
+    overflow-x: hidden;
+    cursor: crosshair;
+  }
+
+  /* ── NOISE OVERLAY ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 9999; opacity: .55;
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1.2rem 3rem;
+    border-bottom: 1px solid rgba(244,241,234,.08);
+    backdrop-filter: blur(14px);
+    background: rgba(10,14,26,.7);
+  }
+  .nav-logo {
+    font-family: 'Space Mono', monospace;
+    font-size: .95rem; font-weight: 700;
+    letter-spacing: .08em; color: var(--paper);
+    display: flex; align-items: center; gap: .5rem;
+  }
+  .nav-logo span { color: var(--blue); }
+  .nav-links { display: flex; gap: 2rem; }
+  .nav-links a {
+    font-family: 'Space Mono', monospace;
+    font-size: .78rem; letter-spacing: .06em;
+    color: rgba(244,241,234,.55); text-decoration: none;
+    transition: color .2s;
+  }
+  .nav-links a:hover { color: var(--paper); }
+  .nav-badge {
+    font-family: 'Space Mono', monospace; font-size: .72rem;
+    padding: .35rem .85rem; border: 1px solid var(--blue);
+    color: var(--blue); letter-spacing: .06em;
+  }
+
+  /* ── HERO ── */
+  #hero {
+    min-height: 100vh;
+    display: grid; grid-template-columns: 1fr 1fr;
+    align-items: center; padding: 0 3rem;
+    padding-top: 5rem; gap: 4rem;
+    position: relative; overflow: hidden;
+  }
+  .hero-bg {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse 60% 60% at 70% 50%, rgba(26,60,255,.12) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 40% at 20% 80%, rgba(0,212,255,.06) 0%, transparent 70%);
+  }
+  .hero-grid-lines {
+    position: absolute; inset: 0; opacity: .06;
+    background-image:
+      linear-gradient(var(--paper) 1px, transparent 1px),
+      linear-gradient(90deg, var(--paper) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+  .hero-left { position: relative; z-index: 1; }
+  .hero-tag {
+    display: inline-block;
+    font-family: 'Space Mono', monospace; font-size: .72rem;
+    letter-spacing: .12em; text-transform: uppercase;
+    color: var(--blue); border: 1px solid var(--blue);
+    padding: .3rem .8rem; margin-bottom: 1.5rem;
+  }
+  h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(3.2rem, 6vw, 5.5rem);
+    line-height: 1.05; margin-bottom: 1.5rem;
+    color: var(--paper);
+  }
+  h1 em { font-style: italic; color: var(--blue); }
+  .hero-sub {
+    font-size: 1.05rem; font-weight: 300; line-height: 1.7;
+    color: rgba(244,241,234,.6); max-width: 480px; margin-bottom: 2.5rem;
+  }
+  .hero-ctas { display: flex; gap: 1rem; flex-wrap: wrap; }
+  .btn-primary {
+    font-family: 'Space Mono', monospace; font-size: .82rem;
+    letter-spacing: .06em; padding: .85rem 2rem;
+    background: var(--blue); color: var(--paper);
+    border: none; cursor: pointer; transition: all .2s;
+    text-decoration: none; display: inline-block;
+  }
+  .btn-primary:hover { background: #0024cc; transform: translateY(-2px); }
+  .btn-ghost {
+    font-family: 'Space Mono', monospace; font-size: .82rem;
+    letter-spacing: .06em; padding: .85rem 2rem;
+    background: transparent; color: var(--paper);
+    border: 1px solid rgba(244,241,234,.3); cursor: pointer; transition: all .2s;
+    text-decoration: none; display: inline-block;
+  }
+  .btn-ghost:hover { border-color: var(--paper); }
+
+  .hero-stats {
+    display: flex; gap: 2.5rem; margin-top: 3rem;
+    padding-top: 2rem; border-top: 1px solid rgba(244,241,234,.1);
+  }
+  .stat-item { display: flex; flex-direction: column; gap: .3rem; }
+  .stat-num {
+    font-family: 'Space Mono', monospace; font-size: 2rem;
+    font-weight: 700; color: var(--paper);
+  }
+  .stat-label {
+    font-family: 'Space Mono', monospace; font-size: .68rem;
+    letter-spacing: .1em; text-transform: uppercase;
+    color: rgba(244,241,234,.4);
+  }
+
+  /* ── LIVE GRAPH VIZ ── */
+  .hero-right { position: relative; z-index: 1; display: flex; justify-content: center; }
+  #graph-canvas {
+    width: 100%; max-width: 520px;
+    border: 1px solid rgba(244,241,234,.1);
+    background: rgba(244,241,234,.02);
+  }
+
+  /* ── SECTION BASE ── */
+  section { padding: 7rem 3rem; position: relative; }
+  .section-label {
+    font-family: 'Space Mono', monospace; font-size: .72rem;
+    letter-spacing: .15em; text-transform: uppercase;
+    color: var(--blue); margin-bottom: 1rem; display: block;
+  }
+  h2 {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(2.4rem, 4vw, 3.8rem);
+    line-height: 1.1; margin-bottom: 1.5rem;
+    color: var(--paper);
+  }
+  h2 em { font-style: italic; color: var(--blue); }
+  .section-sub {
+    font-size: 1rem; font-weight: 300; line-height: 1.75;
+    color: rgba(244,241,234,.55); max-width: 560px;
+  }
+
+  /* ── ABOUT ── */
+  #about {
+    border-top: 1px solid rgba(244,241,234,.07);
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6rem; align-items: center;
+  }
+  .about-cards { display: flex; flex-direction: column; gap: 1.2rem; }
+  .about-card {
+    border: 1px solid rgba(244,241,234,.1);
+    padding: 1.6rem;
+    transition: border-color .3s, transform .3s;
+    position: relative; overflow: hidden;
+  }
+  .about-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; width: 3px; height: 100%;
+    background: var(--blue);
+  }
+  .about-card:hover { border-color: rgba(26,60,255,.5); transform: translateX(4px); }
+  .about-card-title {
+    font-family: 'Space Mono', monospace; font-size: .82rem;
+    font-weight: 700; letter-spacing: .06em;
+    color: var(--paper); margin-bottom: .5rem;
+  }
+  .about-card-text { font-size: .9rem; line-height: 1.65; color: rgba(244,241,234,.55); }
+
+  /* ── BRANCHES ── */
+  #branches { border-top: 1px solid rgba(244,241,234,.07); }
+  .branches-header { max-width: 600px; margin-bottom: 4rem; }
+  .branch-grid {
+    display: grid; grid-template-columns: repeat(7, 1fr); gap: 0;
+    border: 1px solid rgba(244,241,234,.1);
+  }
+  .branch-card {
+    padding: 2rem 1rem; text-align: center;
+    border-right: 1px solid rgba(244,241,234,.1);
+    transition: transform .3s; cursor: default; position: relative; overflow: hidden;
+  }
+  .branch-card:last-child { border-right: none; }
+  .branch-card::before {
+    content: '';
+    position: absolute; bottom: 0; left: 0; right: 0; height: 3px;
+    background: var(--accent);
+    transform: scaleX(0); transition: transform .3s;
+  }
+  .branch-card:hover::before { transform: scaleX(1); }
+  .branch-card:hover { transform: translateY(-6px); background: rgba(244,241,234,.03); }
+  .branch-color-dot {
+    width: 36px; height: 36px; border-radius: 50%;
+    margin: 0 auto 1rem; display: flex; align-items: center; justify-content: center;
+    font-family: 'Space Mono', monospace; font-size: .68rem; font-weight: 700; color: #000;
+  }
+  .branch-code {
+    font-family: 'Space Mono', monospace; font-size: .75rem;
+    font-weight: 700; letter-spacing: .08em; color: var(--paper);
+    margin-bottom: .3rem;
+  }
+  .branch-name {
+    font-size: .72rem; line-height: 1.4; color: rgba(244,241,234,.45);
+    margin-bottom: .8rem;
+  }
+  .branch-count {
+    font-family: 'Space Mono', monospace; font-size: 1.3rem;
+    font-weight: 700;
+  }
+  .branch-count-label {
+    font-family: 'Space Mono', monospace; font-size: .6rem;
+    letter-spacing: .08em; color: rgba(244,241,234,.35);
+  }
+
+  /* ── ALGORITHM ── */
+  #algorithm {
+    border-top: 1px solid rgba(244,241,234,.07);
+    background: rgba(26,60,255,.04);
+  }
+  .algo-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 6rem; align-items: start; }
+  .algo-steps { display: flex; flex-direction: column; gap: 0; }
+  .algo-step {
+    display: grid; grid-template-columns: 60px 1fr;
+    gap: 1.5rem; padding: 1.8rem 0;
+    border-bottom: 1px solid rgba(244,241,234,.07);
+    transition: background .2s;
+  }
+  .algo-step:last-child { border-bottom: none; }
+  .step-num {
+    font-family: 'Space Mono', monospace; font-size: 2rem;
+    font-weight: 700; color: rgba(26,60,255,.3);
+    line-height: 1;
+  }
+  .step-body {}
+  .step-title {
+    font-family: 'Space Mono', monospace; font-size: .85rem;
+    font-weight: 700; color: var(--paper); margin-bottom: .4rem;
+  }
+  .step-desc { font-size: .88rem; line-height: 1.65; color: rgba(244,241,234,.5); }
+  .algo-right {}
+  .code-block {
+    background: rgba(0,0,0,.5); border: 1px solid rgba(244,241,234,.1);
+    padding: 1.8rem; font-family: 'Space Mono', monospace;
+    font-size: .75rem; line-height: 1.9; color: rgba(244,241,234,.7);
+    white-space: pre; overflow-x: auto;
+  }
+  .code-kw { color: var(--blue); }
+  .code-fn { color: var(--cyan); }
+  .code-cm { color: rgba(244,241,234,.3); font-style: italic; }
+  .code-num { color: var(--green); }
+  .code-str { color: var(--gold); }
+
+  /* ── INTERACTIVE SEATING ── */
+  #demo {
+    border-top: 1px solid rgba(244,241,234,.07);
+  }
+  .demo-header { max-width: 640px; margin-bottom: 3rem; }
+  .demo-controls {
+    display: flex; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap; align-items: center;
+  }
+  .demo-controls label {
+    font-family: 'Space Mono', monospace; font-size: .75rem;
+    color: rgba(244,241,234,.5); margin-right: .3rem;
+  }
+  .demo-controls select, .demo-controls input {
+    background: rgba(244,241,234,.06); border: 1px solid rgba(244,241,234,.15);
+    color: var(--paper); font-family: 'Space Mono', monospace; font-size: .78rem;
+    padding: .45rem .8rem; outline: none; cursor: pointer;
+  }
+  .demo-controls select:focus, .demo-controls input:focus {
+    border-color: var(--blue);
+  }
+  #generate-btn {
+    font-family: 'Space Mono', monospace; font-size: .78rem;
+    padding: .5rem 1.4rem; background: var(--blue); color: var(--paper);
+    border: none; cursor: pointer; letter-spacing: .05em;
+    transition: background .2s;
+  }
+  #generate-btn:hover { background: #0024cc; }
+  .hall-wrapper {
+    border: 1px solid rgba(244,241,234,.1);
+    overflow: auto;
+  }
+  .hall-label {
+    font-family: 'Space Mono', monospace; font-size: .72rem;
+    letter-spacing: .08em; padding: .8rem 1.2rem;
+    border-bottom: 1px solid rgba(244,241,234,.1);
+    color: rgba(244,241,234,.4);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  #seat-grid {
+    display: grid; gap: 4px; padding: 1.4rem;
+  }
+  .seat {
+    width: 56px; height: 52px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    border: 1px solid transparent; font-size: .55rem; font-family: 'Space Mono', monospace;
+    transition: transform .2s, box-shadow .2s; cursor: default; position: relative;
+  }
+  .seat:hover { transform: scale(1.1); z-index: 10; box-shadow: 0 8px 24px rgba(0,0,0,.5); }
+  .seat .roll { font-weight: 700; font-size: .6rem; }
+  .seat .br { font-size: .52rem; opacity: .75; }
+  .seat.empty { background: rgba(244,241,234,.04); border-color: rgba(244,241,234,.08); color: rgba(244,241,234,.2); }
+
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 1.5rem;
+  }
+  .legend-item {
+    display: flex; align-items: center; gap: .5rem;
+    font-family: 'Space Mono', monospace; font-size: .7rem; color: rgba(244,241,234,.6);
+  }
+  .legend-dot { width: 12px; height: 12px; border-radius: 2px; }
+
+  /* ── HOW IT WORKS ── */
+  #howit { border-top: 1px solid rgba(244,241,234,.07); }
+  .flow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; position: relative; }
+  .flow-arrow {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    font-size: 1.5rem; color: rgba(244,241,234,.2);
+  }
+  .flow-card {
+    padding: 2.5rem 2rem; border: 1px solid rgba(244,241,234,.1);
+    border-right: none; position: relative; overflow: hidden;
+    transition: background .3s;
+  }
+  .flow-card:last-child { border-right: 1px solid rgba(244,241,234,.1); }
+  .flow-card:hover { background: rgba(26,60,255,.06); }
+  .flow-card::after {
+    content: attr(data-arrow);
+    position: absolute; right: -16px; top: 50%; transform: translateY(-50%);
+    font-size: 1.2rem; color: rgba(244,241,234,.2); z-index: 1;
+  }
+  .flow-num {
+    font-family: 'Space Mono', monospace; font-size: 3rem; font-weight: 700;
+    color: rgba(244,241,234,.06); line-height: 1; margin-bottom: 1rem;
+  }
+  .flow-icon { font-size: 1.8rem; margin-bottom: 1rem; }
+  .flow-title {
+    font-family: 'Space Mono', monospace; font-size: .82rem; font-weight: 700;
+    color: var(--paper); margin-bottom: .6rem;
+  }
+  .flow-desc { font-size: .85rem; line-height: 1.65; color: rgba(244,241,234,.45); }
+
+  /* ── TECH STACK ── */
+  #tech { border-top: 1px solid rgba(244,241,234,.07); }
+  .tech-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-top: 3rem; }
+  .tech-card {
+    border: 1px solid rgba(244,241,234,.1); padding: 1.8rem;
+    transition: border-color .3s, transform .3s;
+  }
+  .tech-card:hover { border-color: var(--blue); transform: translateY(-4px); }
+  .tech-layer {
+    font-family: 'Space Mono', monospace; font-size: .65rem;
+    letter-spacing: .12em; text-transform: uppercase;
+    color: var(--blue); margin-bottom: .8rem;
+  }
+  .tech-items { display: flex; flex-direction: column; gap: .5rem; }
+  .tech-item {
+    display: flex; align-items: center; gap: .6rem;
+    font-family: 'Space Mono', monospace; font-size: .78rem; color: rgba(244,241,234,.65);
+  }
+  .tech-bullet { width: 6px; height: 6px; background: var(--blue); flex-shrink: 0; }
+
+  /* ── TEAM / FOOTER ── */
+  #team {
+    border-top: 1px solid rgba(244,241,234,.07);
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6rem; align-items: center;
+  }
+  .team-info {}
+  .team-meta {
+    display: flex; flex-direction: column; gap: 1rem; margin-top: 2.5rem;
+  }
+  .team-row {
+    display: flex; align-items: center; gap: 1rem;
+    font-family: 'Space Mono', monospace; font-size: .8rem;
+  }
+  .team-row-label { color: rgba(244,241,234,.35); min-width: 130px; }
+  .team-row-val { color: var(--paper); }
+
+  footer {
+    padding: 2rem 3rem;
+    border-top: 1px solid rgba(244,241,234,.07);
+    display: flex; align-items: center; justify-content: space-between;
+    font-family: 'Space Mono', monospace; font-size: .7rem;
+    color: rgba(244,241,234,.3);
+  }
+  footer span { color: var(--blue); }
+
+  /* ── ANIMATIONS ── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .fade-up { opacity: 0; animation: fadeUp .7s ease forwards; }
+  .delay-1 { animation-delay: .1s; }
+  .delay-2 { animation-delay: .22s; }
+  .delay-3 { animation-delay: .34s; }
+  .delay-4 { animation-delay: .46s; }
+  .delay-5 { animation-delay: .58s; }
+
+  @keyframes pulse-ring {
+    0%   { box-shadow: 0 0 0 0 rgba(26,60,255,.4); }
+    70%  { box-shadow: 0 0 0 14px rgba(26,60,255,0); }
+    100% { box-shadow: 0 0 0 0 rgba(26,60,255,0); }
+  }
+  .pulse { animation: pulse-ring 2s infinite; }
+
+  @media (max-width: 900px) {
+    #hero { grid-template-columns: 1fr; padding: 7rem 1.5rem 3rem; }
+    #about, .algo-layout, #team { grid-template-columns: 1fr; gap: 3rem; }
+    .branch-grid { grid-template-columns: repeat(4, 1fr); }
+    .flow { grid-template-columns: 1fr 1fr; }
+    .tech-grid { grid-template-columns: 1fr 1fr; }
+    nav { padding: 1rem 1.5rem; }
+    .nav-links { display: none; }
+    section { padding: 4rem 1.5rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">&#9632; <span>GRAPH</span>SEAT</div>
+  <div class="nav-links">
+    <a href="#about">About</a>
+    <a href="#branches">Branches</a>
+    <a href="#algorithm">Algorithm</a>
+    <a href="#demo">Live Demo</a>
+    <a href="#tech">Tech Stack</a>
+  </div>
+  <div class="nav-badge">2Y · 2SEM</div>
+</nav>
+
+<!-- HERO -->
+<section id="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-grid-lines"></div>
+  <div class="hero-left">
+    <div class="hero-tag fade-up">Academic Project · Graph Theory</div>
+    <h1 class="fade-up delay-1">
+      Exam Seating<br/>via <em>Graph<br/>Colouring</em>
+    </h1>
+    <p class="hero-sub fade-up delay-2">
+      An automated online system that models exam halls as adjacency graphs and applies the Welsh-Powell algorithm to generate conflict-free seating arrangements for 500 students across 7 engineering branches.
+    </p>
+    <div class="hero-ctas fade-up delay-3">
+      <a href="#demo" class="btn-primary pulse">Try Live Demo</a>
+      <a href="#algorithm" class="btn-ghost">See Algorithm →</a>
+    </div>
+    <div class="hero-stats fade-up delay-4">
+      <div class="stat-item">
+        <span class="stat-num">500</span>
+        <span class="stat-label">Students</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-num">7</span>
+        <span class="stat-label">Branches</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-num">χ=7</span>
+        <span class="stat-label">Chromatic #</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-num">&lt;2s</span>
+        <span class="stat-label">Runtime</span>
+      </div>
+    </div>
+  </div>
+  <div class="hero-right fade-up delay-5">
+    <canvas id="graph-canvas" width="520" height="420"></canvas>
+  </div>
+</section>
+
+<!-- ABOUT -->
+<section id="about">
+  <div>
+    <span class="section-label">01 — About</span>
+    <h2>Why <em>Graph<br/>Colouring?</em></h2>
+    <p class="section-sub">
+      Traditional manual seating is error-prone and time-consuming for large cohorts. By treating the exam hall as a graph, we turn a logistics problem into a well-studied mathematical problem with provable correctness guarantees.
+    </p>
+  </div>
+  <div class="about-cards">
+    <div class="about-card">
+      <div class="about-card-title">&#9632; The Core Problem</div>
+      <div class="about-card-text">Adjacent seats must be assigned to students from different branches, preventing possible malpractice. This is precisely the Graph Colouring constraint: no two connected nodes may share the same colour (branch).</div>
+    </div>
+    <div class="about-card">
+      <div class="about-card-title">&#9632; The Graph Model</div>
+      <div class="about-card-text">Each seat is a vertex. Seats sharing a physical boundary (8-directional) are connected by edges. We then colour this graph with exactly 7 colours, one per branch, satisfying the adjacency constraint globally.</div>
+    </div>
+    <div class="about-card">
+      <div class="about-card-title">&#9632; The Guarantee</div>
+      <div class="about-card-text">Post-assignment, the system runs a validation pass over every edge. If any adjacent pair shares a branch, a conflict is raised. For standard hall grids, zero conflicts are guaranteed by the algorithm.</div>
+    </div>
+  </div>
+</section>
+
+<!-- BRANCHES -->
+<section id="branches">
+  <div class="branches-header">
+    <span class="section-label">02 — Branches</span>
+    <h2>7 Branches, <em>Equal Distribution</em></h2>
+    <p class="section-sub">500 students are equally distributed — 71 or 72 per branch. Each branch receives a unique colour in the graph colouring model and a distinct roll-number prefix.</p>
+  </div>
+  <div class="branch-grid">
+    <div class="branch-card" style="--accent: var(--c1)">
+      <div class="branch-color-dot" style="background:var(--c1)">C1</div>
+      <div class="branch-code">CSE</div>
+      <div class="branch-name">Computer Science &amp; Engg.</div>
+      <div class="branch-count" style="color:var(--c1)">71</div>
+      <div class="branch-count-label">Students</div>
+    </div>
+    <div class="branch-card" style="--accent: var(--c2)">
+      <div class="branch-color-dot" style="background:var(--c2)">C2</div>
+      <div class="branch-code">ECE</div>
+      <div class="branch-name">Electronics &amp; Comm. Engg.</div>
+      <div class="branch-count" style="color:var(--c2)">71</div>
+      <div class="branch-count-label">Students</div>
+    </div>
+    <div class="branch-card" style="--accent: var(--c3)">
+      <div class="branch-color-dot" style="background:var(--c3); color:#000">C3</div>
+      <div class="branch-code">EEE</div>
+      <div class="branch-name">Electrical &amp; Electronics Engg.</div>
+      <div class="branch-count" style="color:var(--c3)">72</div>
+      <div class="branch-count-label">Students</div>
+    </div>
+    <div class="branch-card" style="--accent: var(--c4)">
+      <div class="branch-color-dot" style="background:var(--c4)">C4</div>
+      <div class="branch-code">MECH</div>
+      <div class="branch-name">Mechanical Engineering</div>
+      <div class="branch-count" style="color:var(--c4)">71</div>
+      <div class="branch-count-label">Students</div>
+    </div>
+    <div class="branch-card" style="--accent: var(--c5)">
+      <div class="branch-color-dot" style="background:var(--c5); color:#000">C5</div>
+      <div class="branch-code">CIVIL</div>
+      <div class="branch-name">Civil Engineering</div>
+      <div class="branch-count" style="color:var(--c5)">71</div>
+      <div class="branch-count-label">Students</div>
+    </div>
+    <div class="branch-card" style="--accent: var(--c6)">
+      <div class="branch-color-dot" style="background:var(--c6)">C6</div>
+      <div class="branch-code">CHEM</div>
+      <div class="branch-name">Chemical Engineering</div>
+      <div class="branch-count" style="color:var(--c6)">72</div>
+      <div class="branch-count-label">Students</div>
+    </div>
+    <div class="branch-card" style="--accent: var(--c7)">
+      <div class="branch-color-dot" style="background:var(--c7); color:#000">C7</div>
+      <div class="branch-code">BIOTECH</div>
+      <div class="branch-name">Biotechnology</div>
+      <div class="branch-count" style="color:var(--c7)">72</div>
+      <div class="branch-count-label">Students</div>
+    </div>
+  </div>
+</section>
+
+<!-- ALGORITHM -->
+<section id="algorithm">
+  <div class="algo-layout">
+    <div>
+      <span class="section-label">03 — Algorithm</span>
+      <h2>Welsh-Powell <em>Step by Step</em></h2>
+      <p class="section-sub" style="margin-bottom:3rem">A greedy graph colouring heuristic that runs in O(V+E) time — efficient enough to colour 500+ seats in under 2 seconds.</p>
+      <div class="algo-steps">
+        <div class="algo-step">
+          <div class="step-num">01</div>
+          <div class="step-body">
+            <div class="step-title">Build the Adjacency Graph</div>
+            <div class="step-desc">Each seat (i,j) becomes a vertex. Add edges for all 8-directional neighbours within hall bounds.</div>
+          </div>
+        </div>
+        <div class="algo-step">
+          <div class="step-num">02</div>
+          <div class="step-body">
+            <div class="step-title">Sort by Degree (Descending)</div>
+            <div class="step-desc">Order all vertices by the number of adjacent seats. Interior seats (degree 8) are coloured first, reducing backtracking.</div>
+          </div>
+        </div>
+        <div class="algo-step">
+          <div class="step-num">03</div>
+          <div class="step-body">
+            <div class="step-title">Greedy Colour Assignment</div>
+            <div class="step-desc">Assign each vertex the smallest colour (branch ID) not already used by any of its coloured neighbours.</div>
+          </div>
+        </div>
+        <div class="algo-step">
+          <div class="step-num">04</div>
+          <div class="step-body">
+            <div class="step-title">Map Colours → Students</div>
+            <div class="step-desc">Collect seats per colour. Shuffle the matching branch's student list. Assign one-to-one. Every student gets exactly one seat.</div>
+          </div>
+        </div>
+        <div class="algo-step">
+          <div class="step-num">05</div>
+          <div class="step-body">
+            <div class="step-title">Validate &amp; Export</div>
+            <div class="step-desc">Walk every edge and assert no same-branch pair. Generate printable PDF seating chart and individual seat slips.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="algo-right">
+      <div class="code-block"><span class="code-cm"># Welsh-Powell Graph Colouring</span>
+<span class="code-cm"># O(V + E) — handles 500 seats &lt; 2s</span>
+
+<span class="code-kw">def</span> <span class="code-fn">welsh_powell</span>(graph):
+    <span class="code-cm"># Step 1: Sort by degree descending</span>
+    vertices = sorted(
+        graph.nodes(),
+        key=<span class="code-kw">lambda</span> v: graph.degree(v),
+        reverse=<span class="code-kw">True</span>
+    )
+
+    colour_map = {}   <span class="code-cm"># vertex → branch_id</span>
+    BRANCHES = [<span class="code-str">'CSE'</span>,<span class="code-str">'ECE'</span>,<span class="code-str">'EEE'</span>,<span class="code-str">'MECH'</span>,
+                <span class="code-str">'CIVIL'</span>,<span class="code-str">'CHEM'</span>,<span class="code-str">'BIOTECH'</span>]
+
+    <span class="code-kw">for</span> v <span class="code-kw">in</span> vertices:
+        <span class="code-cm"># Colours used by neighbours</span>
+        used = {
+            colour_map[n]
+            <span class="code-kw">for</span> n <span class="code-kw">in</span> graph.neighbors(v)
+            <span class="code-kw">if</span> n <span class="code-kw">in</span> colour_map
+        }
+        <span class="code-cm"># Pick lowest available branch</span>
+        <span class="code-kw">for</span> branch <span class="code-kw">in</span> BRANCHES:
+            <span class="code-kw">if</span> branch <span class="code-kw">not in</span> used:
+                colour_map[v] = branch
+                <span class="code-kw">break</span>
+
+    <span class="code-kw">return</span> colour_map  <span class="code-cm"># seat → branch</span>
+
+<span class="code-kw">def</span> <span class="code-fn">validate</span>(graph, colour_map):
+    conflicts = []
+    <span class="code-kw">for</span> u, v <span class="code-kw">in</span> graph.edges():
+        <span class="code-kw">if</span> colour_map[u] == colour_map[v]:
+            conflicts.append((u, v))
+    <span class="code-kw">return</span> conflicts  <span class="code-cm"># [] = success</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- DEMO -->
+<section id="demo">
+  <div class="demo-header">
+    <span class="section-label">04 — Interactive Demo</span>
+    <h2>Live <em>Seating Generator</em></h2>
+    <p class="section-sub">Configure rows and columns, then generate a conflict-free seating chart in real time using the graph colouring algorithm running right here in your browser.</p>
+  </div>
+  <div class="demo-controls">
+    <div>
+      <label>ROWS</label>
+      <input type="number" id="ctrl-rows" value="8" min="2" max="15" style="width:64px"/>
+    </div>
+    <div>
+      <label>COLS</label>
+      <input type="number" id="ctrl-cols" value="9" min="2" max="14" style="width:64px"/>
+    </div>
+    <button id="generate-btn" onclick="generateSeating()">&#9654; Generate Seating</button>
+    <span id="status-msg" style="font-family:Space Mono,monospace;font-size:.72rem;color:rgba(244,241,234,.4)"></span>
+  </div>
+  <div class="hall-wrapper">
+    <div class="hall-label">
+      <span>EXAM HALL — BLOCK A / ROOM 101</span>
+      <span id="hall-stat">—</span>
+    </div>
+    <div id="seat-grid"></div>
+  </div>
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:var(--c1)"></div>CSE</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--c2)"></div>ECE</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--c3)"></div>EEE</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--c4)"></div>MECH</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--c5)"></div>CIVIL</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--c6)"></div>CHEM</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--c7)"></div>BIOTECH</div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="howit">
+  <span class="section-label">05 — Workflow</span>
+  <h2 style="margin-bottom:3rem">End-to-End <em>Flow</em></h2>
+  <div class="flow">
+    <div class="flow-card" data-arrow="→">
+      <div class="flow-num">01</div>
+      <div class="flow-icon">📋</div>
+      <div class="flow-title">Upload Students</div>
+      <div class="flow-desc">Admin uploads a CSV with student names and branches. System auto-generates roll numbers in the YY+BRANCH+SERIAL format.</div>
+    </div>
+    <div class="flow-card" data-arrow="→">
+      <div class="flow-num">02</div>
+      <div class="flow-icon">🏛️</div>
+      <div class="flow-title">Configure Halls</div>
+      <div class="flow-desc">Define exam hall dimensions (rows × cols). System immediately builds the adjacency graph for that layout.</div>
+    </div>
+    <div class="flow-card" data-arrow="→">
+      <div class="flow-num">03</div>
+      <div class="flow-icon">🎨</div>
+      <div class="flow-title">Run Colouring</div>
+      <div class="flow-desc">Welsh-Powell algorithm assigns one of 7 branch-colours to every seat vertex, satisfying all adjacency constraints.</div>
+    </div>
+    <div class="flow-card">
+      <div class="flow-num">04</div>
+      <div class="flow-icon">📄</div>
+      <div class="flow-title">Export &amp; Print</div>
+      <div class="flow-desc">Download a validated PDF seating chart per hall plus individual seat slips for 500 students — ready to distribute.</div>
+    </div>
+  </div>
+</section>
+
+<!-- TECH -->
+<section id="tech">
+  <span class="section-label">06 — Technology</span>
+  <h2>Stack &amp; <em>Architecture</em></h2>
+  <p class="section-sub">Three-tier architecture — presentation, application, and data — kept modular for easy tech-stack swaps depending on faculty guidance.</p>
+  <div class="tech-grid">
+    <div class="tech-card">
+      <div class="tech-layer">Frontend</div>
+      <div class="tech-items">
+        <div class="tech-item"><div class="tech-bullet"></div>HTML5 / CSS3 / JavaScript</div>
+        <div class="tech-item"><div class="tech-bullet"></div>React (optional)</div>
+        <div class="tech-item"><div class="tech-bullet"></div>Canvas API (graph viz)</div>
+        <div class="tech-item"><div class="tech-bullet"></div>Responsive admin dashboard</div>
+      </div>
+    </div>
+    <div class="tech-card">
+      <div class="tech-layer">Backend &amp; Algorithm</div>
+      <div class="tech-items">
+        <div class="tech-item"><div class="tech-bullet"></div>Python 3 / Flask REST API</div>
+        <div class="tech-item"><div class="tech-bullet"></div>NetworkX (graph library)</div>
+        <div class="tech-item"><div class="tech-bullet"></div>Welsh-Powell algorithm</div>
+        <div class="tech-item"><div class="tech-bullet"></div>CSV import &amp; validation</div>
+      </div>
+    </div>
+    <div class="tech-card">
+      <div class="tech-layer">Data &amp; Export</div>
+      <div class="tech-items">
+        <div class="tech-item"><div class="tech-bullet"></div>SQLite / PostgreSQL</div>
+        <div class="tech-item"><div class="tech-bullet"></div>ReportLab (PDF export)</div>
+        <div class="tech-item"><div class="tech-bullet"></div>Jinja2 (HTML charts)</div>
+        <div class="tech-item"><div class="tech-bullet"></div>Session-based auth</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TEAM / PROJECT INFO -->
+<section id="team">
+  <div class="team-info">
+    <span class="section-label">07 — Project Details</span>
+    <h2>Academic <em>Context</em></h2>
+    <p class="section-sub">A 2nd Year, 2nd Semester engineering project applying graph theory to a real institutional problem — demonstrating that classical CS algorithms solve practical challenges elegantly.</p>
+    <div class="team-meta">
+      <div class="team-row"><span class="team-row-label">YEAR / SEM</span><span class="team-row-val">2nd Year · 2nd Semester</span></div>
+      <div class="team-row"><span class="team-row-label">SUBJECT DOMAIN</span><span class="team-row-val">Data Structures &amp; Algorithms</span></div>
+      <div class="team-row"><span class="team-row-label">ALGORITHM</span><span class="team-row-val">Welsh-Powell Graph Colouring</span></div>
+      <div class="team-row"><span class="team-row-label">COMPLEXITY</span><span class="team-row-val">O(V + E) — polynomial time</span></div>
+      <div class="team-row"><span class="team-row-label">STUDENT LOAD</span><span class="team-row-val">1 – 500 students</span></div>
+      <div class="team-row"><span class="team-row-label">BRANCHES</span><span class="team-row-val">CSE · ECE · EEE · MECH · CIVIL · CHEM · BIOTECH</span></div>
+      <div class="team-row"><span class="team-row-label">DELIVERABLE</span><span class="team-row-val">Web app + Algorithm implementation + PDF reports</span></div>
+    </div>
+  </div>
+  <div>
+    <!-- Milestones mini chart -->
+    <div style="border:1px solid rgba(244,241,234,.1);padding:2rem;">
+      <div style="font-family:Space Mono,monospace;font-size:.72rem;letter-spacing:.1em;color:var(--blue);margin-bottom:1.5rem">TIMELINE — 12 WEEKS</div>
+      <div id="milestone-bars"></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div>&#9632; <span>GRAPH</span>SEAT · Online Exam Seating Arrangement System</div>
+  <div>2nd Year · 2nd Semester · Academic Project · 2026</div>
+</footer>
+
+<script>
+// ─── BRANCH CONFIG ───────────────────────────────────────────────────────────
+const BRANCHES = [
+  { code:'CSE',    color:'#1a3cff', prefix:'21CS', count:71 },
+  { code:'ECE',    color:'#00d4ff', prefix:'21EC', count:71 },
+  { code:'EEE',    color:'#00e87a', prefix:'21EE', count:72 },
+  { code:'MECH',   color:'#ff2b4e', prefix:'21ME', count:71 },
+  { code:'CIVIL',  color:'#ffd43b', prefix:'21CV', count:71 },
+  { code:'CHEM',   color:'#9b5de5', prefix:'21CH', count:72 },
+  { code:'BIOTECH',color:'#ff7c2a', prefix:'21BT', count:72 },
+];
+
+// ─── HERO GRAPH ANIMATION ────────────────────────────────────────────────────
+(function() {
+  const canvas = document.getElementById('graph-canvas');
+  const ctx    = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const COLS = 6, ROWS = 5;
+  const nodes = [];
+  const edges = [];
+  let t = 0;
+
+  // Build grid nodes
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const idx = r * COLS + c;
+      nodes.push({
+        id: idx, r, c,
+        x: 60 + c * 80,
+        y: 50 + r * 78,
+        branch: BRANCHES[(r + c * 2) % 7].code,
+        color:  BRANCHES[(r + c * 2) % 7].color,
+        scale: 1, glow: 0
+      });
+    }
+  }
+
+  // 8-directional edges
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const me = nodes[r * COLS + c];
+      [[0,1],[1,0],[1,1],[1,-1]].forEach(([dr,dc]) => {
+        const nr = r+dr, nc = c+dc;
+        if (nr>=0&&nr<ROWS&&nc>=0&&nc<COLS)
+          edges.push([me, nodes[nr*COLS+nc]]);
+      });
+    }
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    t += 0.012;
+
+    // Draw edges
+    edges.forEach(([a,b]) => {
+      const same = a.branch === b.branch;
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.strokeStyle = same ? 'rgba(255,43,78,.5)' : 'rgba(244,241,234,.07)';
+      ctx.lineWidth   = same ? 2 : 1;
+      ctx.stroke();
+    });
+
+    // Animate one "scanning" column
+    const scanCol = Math.floor((Math.sin(t*0.6)+1)/2 * (COLS-1));
+
+    // Draw nodes
+    nodes.forEach(n => {
+      const pulse = n.c === scanCol ? 0.3 * Math.sin(t * 3) : 0;
+      const r = 18 + pulse * 4;
+
+      // Glow
+      const grad = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, r*2.5);
+      grad.addColorStop(0, n.color + 'aa');
+      grad.addColorStop(1, n.color + '00');
+      ctx.beginPath(); ctx.arc(n.x, n.y, r*2.5, 0, Math.PI*2);
+      ctx.fillStyle = grad; ctx.fill();
+
+      // Node
+      ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, Math.PI*2);
+      ctx.fillStyle = n.c === scanCol ? n.color : n.color + 'cc';
+      ctx.fill();
+
+      // Border
+      ctx.strokeStyle = '#0a0e1a'; ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Label
+      ctx.fillStyle = '#0a0e1a';
+      ctx.font = `bold ${n.c === scanCol ? 9 : 8}px "Space Mono", monospace`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(n.branch.slice(0,3), n.x, n.y);
+    });
+
+    // Legend overlay
+    ctx.fillStyle = 'rgba(244,241,234,.2)';
+    ctx.font = '9px "Space Mono", monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('G = (V, E)  |  χ(G) = 7  |  Welsh-Powell', 12, H - 14);
+
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+// ─── SEATING GENERATOR ───────────────────────────────────────────────────────
+function welshPowell(rows, cols) {
+  const total = rows * cols;
+  const adj = Array.from({length:total}, () => []);
+  const id  = (r,c) => r * cols + c;
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+        if (!dr && !dc) continue;
+        const nr = r+dr, nc = c+dc;
+        if (nr>=0&&nr<rows&&nc>=0&&nc<cols) adj[id(r,c)].push(id(nr,nc));
+      }
+    }
+  }
+
+  // Sort by degree desc
+  const order = Array.from({length:total},(_,i)=>i)
+    .sort((a,b)=>adj[b].length - adj[a].length);
+
+  const colour = new Array(total).fill(-1);
+  order.forEach(v => {
+    const used = new Set(adj[v].map(n => colour[n]).filter(c => c !== -1));
+    for (let c = 0; c < BRANCHES.length; c++) {
+      if (!used.has(c)) { colour[v] = c; break; }
+    }
+  });
+  return colour;
+}
+
+function generateSeating() {
+  const rows = Math.min(15, Math.max(2, +document.getElementById('ctrl-rows').value));
+  const cols = Math.min(14, Math.max(2, +document.getElementById('ctrl-cols').value));
+  const total = rows * cols;
+  const t0 = performance.now();
+
+  const colour = welshPowell(rows, cols);
+
+  // Build student pools
+  const pools = BRANCHES.map((b,i) => {
+    const arr = [];
+    for(let k = 1; k <= b.count; k++) arr.push({roll:`${b.prefix}${String(k).padStart(3,'0')}`, branch:b.code});
+    return arr.sort(()=>Math.random()-.5);
+  });
+  const ptrs = new Array(7).fill(0);
+
+  const assignments = colour.map(c => {
+    if (c === -1 || ptrs[c] >= pools[c].length) return null;
+    return pools[c][ptrs[c]++];
+  });
+
+  // Validate
+  let conflicts = 0;
+  const id = (r,c)=>r*cols+c;
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    [[0,1],[1,0],[1,1],[1,-1]].forEach(([dr,dc]) => {
+      const nr=r+dr,nc=c+dc;
+      if(nr>=0&&nr<rows&&nc>=0&&nc<cols) {
+        const a=assignments[id(r,c)], b=assignments[id(nr,nc)];
+        if(a&&b&&a.branch===b.branch) conflicts++;
+      }
+    });
+  }
+
+  const dt = (performance.now() - t0).toFixed(1);
+  document.getElementById('status-msg').textContent = `✓ Generated in ${dt}ms · ${conflicts===0?'0 conflicts':'⚠ '+conflicts+' conflicts'}`;
+  document.getElementById('hall-stat').textContent = `${total} seats · ${rows}R × ${cols}C · ${Object.keys(colour.filter(c=>c!==-1).reduce((a,c)=>(a[c]=1,a),{})).length} branches used`;
+
+  // Render
+  const grid = document.getElementById('seat-grid');
+  grid.style.gridTemplateColumns = `repeat(${cols}, 56px)`;
+  grid.innerHTML = '';
+
+  const branchMap = {};
+  BRANCHES.forEach(b => branchMap[b.code] = b.color);
+
+  for (let i = 0; i < total; i++) {
+    const seat = document.createElement('div');
+    const a = assignments[i];
+    if (a) {
+      const br = BRANCHES.find(b=>b.code===a.branch);
+      const bg = br.color;
+      const textCol = ['#ffd43b','#00e87a','#00d4ff'].includes(bg) ? '#0a0e1a' : '#f4f1ea';
+      seat.className = 'seat';
+      seat.style.background = bg + '22';
+      seat.style.borderColor = bg + '66';
+      seat.style.color = textCol;
+      seat.innerHTML = `<span class="roll" style="color:${bg}">${a.roll}</span><span class="br">${a.branch}</span>`;
+      seat.title = `${a.roll} · ${a.branch}`;
+    } else {
+      seat.className = 'seat empty';
+      seat.textContent = '—';
+    }
+    grid.appendChild(seat);
+  }
+}
+
+// Auto-generate on load
+generateSeating();
+
+// ─── MILESTONES ───────────────────────────────────────────────────────────────
+const milestones = [
+  { label:'Requirements & Design', week:2, done:true },
+  { label:'Database Setup',         week:3, done:false },
+  { label:'Graph Engine',           week:5, done:false },
+  { label:'REST API',               week:6, done:false },
+  { label:'Frontend UI',            week:8, done:false },
+  { label:'Integration',            week:9, done:false },
+  { label:'Export & Reports',       week:10,done:false },
+  { label:'Testing & QA',           week:11,done:false },
+  { label:'Final Demo',             week:12,done:false },
+];
+const mb = document.getElementById('milestone-bars');
+milestones.forEach(m => {
+  const pct = (m.week / 12 * 100).toFixed(0);
+  mb.innerHTML += `
+    <div style="margin-bottom:1rem">
+      <div style="display:flex;justify-content:space-between;margin-bottom:.3rem">
+        <span style="font-family:Space Mono,monospace;font-size:.68rem;color:rgba(244,241,234,${m.done?'.9':'.45'})">${m.label}</span>
+        <span style="font-family:Space Mono,monospace;font-size:.65rem;color:rgba(244,241,234,.3)">Wk ${m.week}</span>
+      </div>
+      <div style="height:4px;background:rgba(244,241,234,.08);position:relative">
+        <div style="position:absolute;left:0;top:0;height:100%;width:${pct}%;background:${m.done?'#1a3cff':'rgba(244,241,234,.2)'}"></div>
+      </div>
+    </div>`;
+});
+</script>
+</body>
+</html>
